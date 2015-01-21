@@ -1,14 +1,10 @@
 Need to do this from database:
-
-S.ls-files and H.blobs comparison (resulting "file": S.blobfiles)
-
-S.blobfiles and SAD/* comparison
-
-philip.greenspun.com/sql/index.html
+1. S.ls-files and H.blobs comparison (resulting "file": S.blobfiles)
+2. S.blobfiles and SAD/* comparison
 
 ~~
 
-sqlite3 analyze.db
+philip.greenspun.com/sql/index.html
 
 ~~
 
@@ -18,47 +14,32 @@ PRAGMA integrity_check(10);
 
 ~~
 
-One table per db file - to minimize lock contention. (Use ATTACH DATABASE if you want to have a single connection object.
-
-~~
-
-.timer on
-PRAGMA page_size = 4096;
-PRAGMA cache_size = 100000;
-PRAGMA journal_mode = OFF; 
-PRAGMA locking_mode = EXCLUSIVE;
-PRAGMA synchronous = OFF;
-PRAGMA automatic_index = 0;
-
-If a lot of memoty, can try:
-PRAGMA temp_store=MEMORY;
+One table per db file - to minimize lock contention. 
+(Use ATTACH DATABASE if you want to have a single connection object.)
 
 ~~
 
 DROP TABLE IF EXISTS qnx;
 CREATE TABLE qnx(version INTEGER, fileblob TEXT, filepath TEXT);
 .mode csv
-BEGIN TRANSACTION;
+BEGIN;
 .import S.csv qnx
-END TRANSACTION;
-ANALYZE qnx;
+COMMIT;
+BEGIN; ANALYZE qnx; COMMIT;
 
 ~~
 
-BEGIN TRANSACTION;
-CREATE INDEX index4fileblob ON qnx(fileblob);
-END TRANSACTION;
+BEGIN; CREATE INDEX index4fileblob ON qnx(fileblob); COMMIT;
+BEGIN; CREATE INDEX index4version ON qnx(version); COMMIT;
+BEGIN; CREATE INDEX index4filepath ON qnx(filepath); COMMIT;
+BEGIN; ANALYZE qnx; COMMIT;
 
 ~~
 
-CREATE INDEX index4version ON qnx(version);
-CREATE INDEX index4filepath ON qnx(filepath);
-ANALYZE qnx;
+Whether to create a single-column index or a composite index, take 
+into consideration the column(s) that you may use very frequently in
+a query's WHERE clause as filter conditions.
 
-~~
-
-Whether to create a single-column index or a composite index, take into consideration the column(s) that you may use very frequently in a query's WHERE clause as filter conditions.
-
-
+So might want something like:
 CREATE INDEX index4blobpath ON qnx(fileblob, filepath);
 
