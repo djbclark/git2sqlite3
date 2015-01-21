@@ -1,0 +1,60 @@
+-- -- -- --
+-- This is the "sqlite3-init-for-big-csv-import.txt" file
+--   When importing large csv files, start sqlite3 like this:
+--   sqlite3 -init sqlite3-init-for-big-csv-import.txt [databasefile]
+-- -- -- --
+
+.echo off
+
+-- 4 KB page size, default most places anyway, but effects cache size so...
+PRAGMA page_size = 4096;
+
+-- page_size * cache_size = bytes of cache (4096 * 125000 = 512MB)
+PRAGMA cache_size = 125000;
+
+-- something about this...
+PRAGMA synchronous = OFF;
+
+-- automatic_index default off in recent version anyway, can make things slow
+PRAGMA automatic_index = 0;
+
+-- mmap_size is in bytes: 4294967296 = 4GB
+PRAGMA mmap_size=4294967296;
+
+-- If a lot of memory, can try:
+-- PRAGMA temp_store=MEMORY;
+
+
+-- -- -- --
+-- Now show all the set values
+-- except we actually set journal_mode and locking_mode here because they
+-- echo no matter the setting of echo.
+-- -- -- --
+
+SELECT '### page_size should be "4096"';
+PRAGMA page_size;
+
+SELECT '### cache_size should be "125000"';
+PRAGMA cache_size;
+
+SELECT '###### NOTE: page_size * cache_size = bytes of cache (4096 * 125000 = 512MB)';
+
+SELECT '### journal_mode should be "off"';
+PRAGMA journal_mode = OFF;
+
+SELECT '### locking_mode should be "exclusive"';
+PRAGMA locking_mode = EXCLUSIVE;
+
+SELECT '### synchronous should be "0"';
+PRAGMA synchronous;
+
+SELECT '### automatic_index should be "0"';
+PRAGMA automatic_index;
+
+SELECT '### mmap_size should be "4294967296" (4 GB)';
+PRAGMA mmap_size;
+
+SELECT '### temp_store should be "2" (MEMORY) if you have a lot of it';
+PRAGMA temp_store;
+
+SELECT '###### WARNING: This config is optimized for speed, not safety!!!';
