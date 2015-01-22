@@ -41,10 +41,33 @@ SET qbranch = (SELECT qbranch
 DROP VIEW qnx_view;		   
 COMMIT;
 
-
 CREATE INDEX qnx_index_qbranch ON qnx(qbranch,qfile,gfile);
 CREATE INDEX qnx_index_qfile ON qnx(qfile,qbranch,gfile);
-
-
 ANALYZE;
 
+CREATE VIEW qnx_latest_view AS
+SELECT rowid AS rowid,
+       MAX(gmark) AS gmark, 
+	   ghash AS ghash, 
+	   qfile AS qfile
+FROM qnx 
+WHERE ghash NOT IN (SELECT ghash FROM pkgsrc) 
+GROUP BY qfile;
+
+CREATE VIEW pkgsrc_ancestor_view AS
+SELECT rowid AS rowid,
+       MAX(gmark) AS gmark,
+	   ghash AS ghash, 
+	   gfile AS gfile
+FROM pkgsrc 
+WHERE gfile IN (SELECT qfile FROM qnx_latest_view) 
+GROUP BY gfile;
+
+CREATE VIEW qnx_only_view AS
+SELECT qnx_latest_view.gmark, qnx_latest_view.ghash, qnx_latest_view.qfile
+FROM qnx_latest_view LEFT JOIN pkgsrc_ancestor_view 
+ON qnx_latest_view.qfile = pkgsrc_ancestor_view.gfile
+WHERE pkgsrc_ancestor_view.gfile IS NULL
+ORDER BY qnx_latest_view.qfile;
+
+NEXT: Only important thing left out: Just a table of all current HEAD_660 files (instead of sparse version already included in qnx table), then use that to whittle down final data set, which will be a join of (views along the lines of) qnx_latest_view and pkgsrc_ancestor_view
