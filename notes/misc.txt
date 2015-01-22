@@ -45,3 +45,6 @@ COMMIT;
 CREATE INDEX qnx_index_qbranch ON qnx(qbranch,qfile,gfile);
 CREATE INDEX qnx_index_qfile ON qnx(qfile,qbranch,gfile);
 
+
+ANALYZE;
+
