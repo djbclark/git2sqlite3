@@ -175,6 +175,7 @@ pkgsrc does include     d5...; e0 is 2 versions before it (gmark 137274 [126852]
 1.3 (qnx repo HEAD_660) d5d8823c79f5341deb88eff7630ac111ff779ba0 
 qnx_head660latest_view  d5d8823c79f5341deb88eff7630ac111ff779ba0 (gmark 442)
 latest version pkgsrc   0b9f04bbc9fae0e487d7df73c80298cc5743f5a7 (gmark 172099)
+--> So ancestor is broken, most recent instead of last common.
 
 1.3 already exists in both places. 
 There are several instances in QNX including HEAD_660.
@@ -193,3 +194,7 @@ PROBLEM: The very latest version of pkgsrc mainline file is getting into pkgsrc_
 FIRST: Need to fix qnx_latest_view 
 
 -- WHERE qfile = 'devel/bmake/files/unit-tests/varcmd'
+
+create view like this:
+two tables a and b each with columns X (int), Y (text), Z (text)
+for each a.[max(X),Y]: if 

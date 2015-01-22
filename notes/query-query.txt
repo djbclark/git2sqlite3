@@ -1,0 +1,77 @@
+Has anyone seen sqlite-compatible SQL to find the common ancestor of rows
+(that in each table come in sets differentiated by an int column) in two tables?
+
+
+Situation: Cannonical git repo and seperate git repo that branched off years ago 
+(both repos imports from other version control systems - svn and cvs)
+
+Want to see all the changes made in branch repo specific to that project - in
+this case, a lot of platform-specific hacks I'd like to learn from.
+
+Stuff cherry picked and imported / vendor branched to branched off repo at 
+various points in time, don't see how to do this based on in-repo metadata.
+
+Git metadata from both repos imported into sqlite3 - fledgling project at
+https://github.com/djbclark/git2sqlite3
+
+
+Anyway, to the example and more specific explanation...
+
+A and B are tables. If it helps you think about it, A.int is checkin number,
+A.hash is a git file blob hash, with A.path being the corresponding full file
+path. A real row looks like this:
+
+117661    e0c6ecdf244feb797d042cc7134f1db9c8d9f5ef devel/bmake/src/varcmd.c
+
+A simplified example:
+  (we figure things out about the A table based on comparisons with the B table)
+
+
+     (Branch)                 (Cannonical)             (Result)
+
+A.int  A.hash  A.path      B.int  B.hash  B.path      hash   path
+-----  ------  ------      -----  ------  ------      -----  -----
+3      e2      bar/a       1      d4      bar/a       d4     bar/a
+1      d4      bar/a       33     je      baz/c       ga     eat/u
+4      l2      baz/c       23     je      baz/c       ff     foo/b
+44     aa      eat/u       4      l2      baz/c
+3      38      foo/b       333    ga      eat/u 
+2      k4      foo/b       100    ag      eat/u
+1      ff      foo/b       77     3k      foo/b
+                           44     ff      foo/b
+                           22     k2      foo/b
+                           
+
+1.  for each row or set of rows defined by having the same A.path value:
+
+      (we want to diff the current A.path against the most recent A.path
+       that has an equivalent B.path file, as defined by having the same 
+       [AB].hash -- or failing that, choose the latest B.path file)
+
+2.    start with the highest numbered row, as definied by A.int
+
+        (higher number rows = newer files)
+  
+3.    if A.hash matchs any B.hash, go to the next (set of) rows
+
+        (ignore files that were copied from B to A at various points, 
+         but that were never modified later in A / not unique to A)
+        
+4.    if A.hash matchs any B.hash, find the highest B.int row it matches,
+        and include that result in the query output
+        
+          (now we are in the situation of having a file that has been 
+           modified in A / is unique to A; we want to find the last 
+           time a version of the file in A was the same as a file in B
+           so we can diff the two files to see the changes specific to A;
+           or if there is no ancestor, return the newest B version)
+      
+5.    loop to previous A.path versions, following this process, 
+        until the (set of) rows are exhausted
+      
+6.    if the (set of) row(s) are exhausted, just go to the next (set of) rows.
+
+
+
+
+
