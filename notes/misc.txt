@@ -14,6 +14,34 @@ ANALYZE gitreponame;
 -- "-init sqlite3-init-for-big-csv-import.txt" and do:
 PRAGMA integrity_check(1);
 
-~~
+~~~~~~~~~~~~ philip.greenspun.com/sql/index.html ~~~~~~~~~~~~
 
-philip.greenspun.com/sql/index.html
+-- If you are working with something imported to git, there may
+-- be a need to massage stuff due to branch names being in the
+-- folder hierarhy. Here's an example...
+
+BEGIN;
+CREATE TEMP VIEW qnx_view AS
+SELECT rowid AS rowid,
+       substr(gfile, 1, pos-1) AS qbranch,
+       substr(gfile, pos+8) AS qfile
+FROM
+  (SELECT *, rowid,
+          instr(gfile,'/pkgsrc/') AS pos
+   FROM qnx);
+ALTER TABLE qnx ADD COLUMN qbranch TEXT;
+ALTER TABLE qnx ADD COLUMN qfile TEXT;
+UPDATE qnx
+SET qbranch = (SELECT qbranch
+               FROM qnx_view
+               WHERE rowid = qnx.rowid),	   
+     qfile  = (SELECT qfile
+               FROM qnx_view
+               WHERE rowid = qnx.rowid);
+DROP VIEW qnx_view;		   
+COMMIT;
+
+
+CREATE INDEX qnx_index_qbranch ON qnx(qbranch,qfile,gfile);
+CREATE INDEX qnx_index_qfile ON qnx(qfile,qbranch,gfile);
+
