@@ -125,9 +125,11 @@ pkgsrc_head660ancestor_view:   +  829   # Latest pkgsrc ancestor found
             qnx_latest_view:     1610
 
 
--- Should just use this against the latest checkout # Never in main pkgsrc  
-select qfile from qnx_head660only_view order by qfile;
+-- Should just use this against the latest checkout # Never in main pkgsrc
+CREATE VIEW files_to_copy AS
+SELECT qfile FROM qnx_head660only_view ORDER BY qfile;
 
 -- Need to cherrypick the below from git pkgsrc repo # Latest pkgsrc ancestor found
-select gfile, ghash from pkgsrc_head660ancestor_view order by gfile;
+CREATE VIEW files_to_diff AS
+SELECT gfile, ghash FROM pkgsrc_head660ancestor_view ORDER BY gfile;
 
