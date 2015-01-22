@@ -1,45 +1,19 @@
-Need to do this from database:
-1. S.ls-files and H.blobs comparison (resulting "file": S.blobfiles)
-2. S.blobfiles and SAD/* comparison
+sqlite3 -init sqlite3-init-for-big-csv-import.txt ganalyze.db
+
+DROP TABLE IF EXISTS gitreponame;
+CREATE TABLE gitreponame(gmark INTEGER, ghash TEXT, gfile TEXT);
+.mode csv
+.import gfe.csv gitreponame
+ANALYZE gitreponame;
+CREATE INDEX gitreponame_index_gmark ON gitreponame(gmark,ghash,gfile);
+CREATE INDEX gitreponame_index_ghash ON gitreponame(ghash,gfile,gmark);
+CREATE INDEX gitreponame_index_gfile ON gitreponame(gfile,ghash,gmark);
+ANALYZE gitreponame; 
+
+-- Then start up without sqlite3 without 
+-- "-init sqlite3-init-for-big-csv-import.txt" and do:
+PRAGMA integrity_check(1);
 
 ~~
 
 philip.greenspun.com/sql/index.html
-
-~~
-
-PRAGMA quick_check(10);
-# or
-PRAGMA integrity_check(10);
-
-~~
-
-One table per db file - to minimize lock contention. 
-(Use ATTACH DATABASE if you want to have a single connection object.)
-
-~~
-
-DROP TABLE IF EXISTS qnx;
-CREATE TABLE qnx(version INTEGER, fileblob TEXT, filepath TEXT);
-.mode csv
-BEGIN;
-.import S.csv qnx
-COMMIT;
-BEGIN; ANALYZE qnx; COMMIT;
-
-~~
-
-BEGIN; CREATE INDEX index4fileblob ON qnx(fileblob); COMMIT;
-BEGIN; CREATE INDEX index4version ON qnx(version); COMMIT;
-BEGIN; CREATE INDEX index4filepath ON qnx(filepath); COMMIT;
-BEGIN; ANALYZE qnx; COMMIT;
-
-~~
-
-Whether to create a single-column index or a composite index, take 
-into consideration the column(s) that you may use very frequently in
-a query's WHERE clause as filter conditions.
-
-So might want something like:
-CREATE INDEX index4blobpath ON qnx(fileblob, filepath);
-
