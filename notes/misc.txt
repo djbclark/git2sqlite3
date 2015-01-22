@@ -34,11 +34,11 @@ ALTER TABLE qnx ADD COLUMN qfile TEXT;
 UPDATE qnx
 SET qbranch = (SELECT qbranch
                FROM qnx_view
-               WHERE rowid = qnx.rowid),	   
+               WHERE rowid = qnx.rowid),       
      qfile  = (SELECT qfile
                FROM qnx_view
                WHERE rowid = qnx.rowid);
-DROP VIEW qnx_view;		   
+DROP VIEW qnx_view;        
 COMMIT;
 
 CREATE INDEX qnx_index_qbranch ON qnx(qbranch,qfile,gfile);
@@ -48,8 +48,8 @@ ANALYZE;
 CREATE VIEW qnx_latest_view AS
 SELECT rowid AS rowid,
        MAX(gmark) AS gmark, 
-	   ghash AS ghash, 
-	   qfile AS qfile
+       ghash AS ghash, 
+       qfile AS qfile
 FROM qnx 
 WHERE ghash NOT IN (SELECT ghash FROM pkgsrc) 
 GROUP BY qfile;
@@ -57,17 +57,77 @@ GROUP BY qfile;
 CREATE VIEW pkgsrc_ancestor_view AS
 SELECT rowid AS rowid,
        MAX(gmark) AS gmark,
-	   ghash AS ghash, 
-	   gfile AS gfile
+       ghash AS ghash, 
+       gfile AS gfile
 FROM pkgsrc 
 WHERE gfile IN (SELECT qfile FROM qnx_latest_view) 
 GROUP BY gfile;
 
 CREATE VIEW qnx_only_view AS
-SELECT qnx_latest_view.gmark, qnx_latest_view.ghash, qnx_latest_view.qfile
+SELECT qnx_latest_view.gmark AS gmark, 
+       qnx_latest_view.ghash AS ghash, 
+       qnx_latest_view.qfile AS qfile
 FROM qnx_latest_view LEFT JOIN pkgsrc_ancestor_view 
 ON qnx_latest_view.qfile = pkgsrc_ancestor_view.gfile
 WHERE pkgsrc_ancestor_view.gfile IS NULL
 ORDER BY qnx_latest_view.qfile;
 
-NEXT: Only important thing left out: Just a table of all current HEAD_660 files (instead of sparse version already included in qnx table), then use that to whittle down final data set, which will be a join of (views along the lines of) qnx_latest_view and pkgsrc_ancestor_view
+-- cd HEAD_660/pkgsrc
+-- find * -type f > ../ffind.csv
+-- sqlite3 ganalyze2.db
+
+CREATE TABLE HEAD_660(ffile TEXT);
+.mode csv
+.import ffind.csv HEAD_660
+CREATE INDEX HEAD660_index_ffile ON HEAD_660(ffile);
+ANALYZE HEAD_660;
+
+CREATE VIEW qnx_head660only_view AS
+SELECT qnx_only_view.gmark AS gmark, 
+       qnx_only_view.ghash AS ghash, 
+       qnx_only_view.qfile AS qfile
+FROM qnx_only_view JOIN HEAD_660 
+ON qnx_only_view.qfile = HEAD_660.ffile
+ORDER BY qnx_only_view.qfile;
+
+CREATE VIEW qnx_head660latest_view AS
+SELECT qnx_latest_view.gmark AS gmark, 
+       qnx_latest_view.ghash AS ghash, 
+       qnx_latest_view.qfile AS qfile
+FROM qnx_latest_view JOIN HEAD_660 
+ON qnx_latest_view.qfile = HEAD_660.ffile
+ORDER BY qnx_latest_view.qfile;
+
+CREATE VIEW pkgsrc_head660ancestor_view AS
+SELECT rowid AS rowid,
+       MAX(gmark) AS gmark,
+       ghash AS ghash, 
+       gfile AS gfile
+FROM pkgsrc 
+WHERE gfile IN (SELECT qfile FROM qnx_head660latest_view) 
+GROUP BY gfile;
+
+
+                   HEAD_660:    75671
+                        qnx:   905189
+                     pkgsrc:   838525
+                
+                
+       qnx_head660only_view:      240   # Never in main pkgsrc      
+pkgsrc_head660ancestor_view:   +  829   # Latest pkgsrc ancestor found
+                               ------
+     qnx_head660latest_view:     1069
+  
+  
+              qnx_only_view:      467
+       pkgsrc_ancestor_view:   + 1143
+                               ------
+            qnx_latest_view:     1610
+
+
+-- Should just use this against the latest checkout # Never in main pkgsrc  
+select qfile from qnx_head660only_view order by qfile;
+
+-- Need to cherrypick the below from git pkgsrc repo # Latest pkgsrc ancestor found
+select gfile, ghash from pkgsrc_head660ancestor_view order by gfile;
+
