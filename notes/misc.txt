@@ -14,7 +14,7 @@ ANALYZE gitreponame;
 -- "-init sqlite3-init-for-big-csv-import.txt" and do:
 PRAGMA integrity_check(1);
 
-~~~~~~~~~~~~ philip.greenspun.com/sql/index.html ~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -- If you are working with something imported to git, there may
 -- be a need to massage stuff due to branch names being in the
@@ -46,12 +46,8 @@ CREATE INDEX qnx_index_qfile ON qnx(qfile,qbranch,gfile);
 ANALYZE;
 
 CREATE VIEW qnx_latest_view AS
-SELECT rowid AS rowid,
-       MAX(gmark) AS gmark, 
-       ghash AS ghash, 
-       qfile AS qfile
+SELECT rowid, MAX(gmark) AS gmark, ghash, qfile
 FROM qnx 
-WHERE ghash NOT IN (SELECT ghash FROM pkgsrc) 
 GROUP BY qfile;
 
 CREATE VIEW pkgsrc_ancestor_view AS
@@ -124,6 +120,7 @@ pkgsrc_head660ancestor_view:   +  829   # Latest pkgsrc ancestor found
                                ------
             qnx_latest_view:     1610
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -- Should just use this against the latest checkout # Never in main pkgsrc
 CREATE VIEW files_to_copy AS
@@ -133,3 +130,66 @@ SELECT qfile FROM qnx_head660only_view ORDER BY qfile;
 CREATE VIEW files_to_diff AS
 SELECT gfile, ghash FROM pkgsrc_head660ancestor_view ORDER BY gfile;
 
+75695 select count(*) from qnx where qbranch = 'HEAD_660';
+75671 select count(*) from qnx_head660latest_view;
+75671 select count(*) from HEAD_660
+
+CREATE VIEW qnx_simple_HEAD_660 AS
+SELECT * FROM qnx WHERE qbranch = 'HEAD_660';
+
+-- These two SELECT statements show table differences
+
+SELECT HEAD_660.*
+FROM HEAD_660
+    LEFT JOIN qnx_simple_HEAD_660 ON (HEAD_660.ffile = qnx_simple_HEAD_660.qfile)
+WHERE qnx_simple_HEAD_660.qfile IS NULL;
+
+SELECT qnx_simple_HEAD_660.*
+FROM qnx_simple_HEAD_660
+    LEFT JOIN HEAD_660 ON (qnx_simple_HEAD_660.qfile = HEAD_660.ffile)
+WHERE HEAD_660.ffile IS NULL;
+	
+"442"	"cdd6e248abe005671fb8eb0cecfc75cdc4bf23d6"	"HEAD_660/pkgsrc/sysutils/s5ipc/files/common.mk"	"HEAD_660"	"sysutils/s5ipc/files/common.mk"
+
+"442"	"c95a666488dc81810e337a96785ae9bd2ee380e3"	"HEAD_660/pkgsrc/sysutils/s5ipc/files/lib/x86/Makefile"	"HEAD_660"	"sysutils/s5ipc/files/lib/x86/Makefile"
+
+"442"	"0f9d7b9a906e5374f855b3a4b8a3bfbb1129c5e9"	"HEAD_660/pkgsrc/sysutils/s5ipc/files/lib/x86/a/Makefile"	"HEAD_660"	"sysutils/s5ipc/files/lib/x86/a/Makefile"
+
+"442"	"0f9d7b9a906e5374f855b3a4b8a3bfbb1129c5e9"	"HEAD_660/pkgsrc/sysutils/s5ipc/files/lib/x86/so/Makefile"	"HEAD_660"	"sysutils/s5ipc/files/lib/x86/so/Makefile"
+
+"442"	"0e22650c04c4e4ab46aeb02231f90cc4422ca3d2"	"HEAD_660/pkgsrc/sysutils/s5ipc/files/manager/x86/Makefile"	"HEAD_660"	"sysutils/s5ipc/files/manager/x86/Makefile"
+
+"442"	"0f9d7b9a906e5374f855b3a4b8a3bfbb1129c5e9"	"HEAD_660/pkgsrc/sysutils/s5ipc/files/manager/x86/o/Makefile"	"HEAD_660"	"sysutils/s5ipc/files/manager/x86/o/Makefile"
+
+RESULT: Above 6 files no longer exist. Should probably figure out why they persist in the qnx table. The qnx_head660latest_view removes everything not in the HEAD_660 table, which comes directly from a find -type f command at the filesystem.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+VERIFIED: The varcmd in HEAD_660 the same as one from http://cvsweb.netbsd.org/bsdweb.cgi/pkgsrc/devel/bmake/files/unit-tests/varcmd 1.3
+
+-- SELECT * FROM qnx_head660latest_view WHERE qfile = 'devel/bmake/files/unit-tests/varcmd';
+-- etc.
+1.1 (difftree)          e0c6ecdf244feb797d042cc7134f1db9c8d9f5ef
+pkgsrc_ancestor_view    0b9f04bbc9fae0e487d7df73c80298cc5743f5a7 (gmark 172099)
+pkgsrc does include     d5...; e0 is 2 versions before it (gmark 137274 [126852] 124248)
+1.3 (qnx repo HEAD_660) d5d8823c79f5341deb88eff7630ac111ff779ba0 
+qnx_head660latest_view  d5d8823c79f5341deb88eff7630ac111ff779ba0 (gmark 442)
+latest version pkgsrc   0b9f04bbc9fae0e487d7df73c80298cc5743f5a7 (gmark 172099)
+
+1.3 already exists in both places. 
+There are several instances in QNX including HEAD_660.
+pkgsrc: 137274
+qnx: 442
+
+1.1 already exists in both places. 
+There are several instances in both repos, in QNX not in HEAD_660.
+pkgsrc: 124248 
+qnx: 129
+
+So this looks like a database query problem... 
+
+PROBLEM: The very latest version of pkgsrc mainline file is getting into pkgsrc_ancestor_view, not the ancestor
+
+FIRST: Need to fix qnx_latest_view 
+
+-- WHERE qfile = 'devel/bmake/files/unit-tests/varcmd'
